@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
 
@@ -14,25 +15,26 @@ namespace YouKnow.Controllers
             而多个Tab页访问，发现线程启动会慢些，此时list里面的内容都已经为空了，所以Run了多次，而到了后面，发现不会再Run多次了
         */
         public ActionResult Index()
-        {            
+        {
             System.Diagnostics.Debug.WriteLine($"{Thread.CurrentThread.ManagedThreadId} start");
-            PdfConvertor.AddTask(DateTime.Now.ToString());
-            return Content(DateTime.Now.ToString());
+
+            if (PdfConvertor.list.Count >= 10)
+            {
+                System.Diagnostics.Debug.WriteLine($"{Thread.CurrentThread.ManagedThreadId} pdf文件任务量已达最大，请稍后重试");
+                return Content($"当前数量：{PdfConvertor.list.Count} pdf文件任务量已达最大，请稍后重试");
+            }
+            //为了不阻塞，这里使用Task来运行
+            Task.Run(() => { PdfConvertor.AddTask(DateTime.Now.ToString()); });
+            return Content($"当前数量：{PdfConvertor.list.Count} {DateTime.Now.ToString()}");
         }
 
         public class PdfConvertor
         {
-            private static List<string> list = new List<string>();
+            public static List<string> list = new List<string>();
             private static bool running = false;
 
             public static void AddTask(string pdfFile)
             {
-                if (list.Count >= 10)
-                {
-                    System.Diagnostics.Debug.WriteLine($"{Thread.CurrentThread.ManagedThreadId} pdf文件任务量已达最大，请稍后重试");
-                    throw new Exception("pdf文件任务量已达最大，请稍后重试");
-                }
-
                 list.Add(pdfFile);
 
                 System.Diagnostics.Debug.WriteLine($"{Thread.CurrentThread.ManagedThreadId} running:{running}");
